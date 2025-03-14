@@ -44,7 +44,7 @@ def create_kafka_topic(topic_name, num_partitions=1, replication_factor=1):
 #Generate random string for Kafka Topic name
 def generate_random_string(length=6):
     return ''.join(random.choices(string.ascii_lowercase + string.digits, k=length))
-    
+
 # Function to send a Kafka message
 def send_kafka_message(topic, message):
     """Sends a message to a Kafka topic"""
@@ -176,12 +176,24 @@ def register_entity(json_file_path, output_directory, registered_by=None):
         registered_by = did_key
 
     topic_name = None
+    flagUniqueName = False
     # Special case: If entity is an "Agent", create a Kafka topic
     if entity_type == "Agent":
-        random_suffix = generate_random_string()
-        topic_name = f"{data["name"].replace(" ", "_").lower()}_{random_suffix}"
-        create_kafka_topic(topic_name)
-        send_kafka_message(topic_name, {"message": f"New Agent registered: {data['name']}"})
+        while flagUniqueName == False:
+            random_suffix = generate_random_string()
+            topic_name = f"{data["name"].replace(" ", "_").lower()}_{random_suffix}"
+            cursor.execute("SELECT COUNT(*) FROM did.keys WHERE kafka_topic = %s", (topic_name,))
+            existing = cursor.fetchone()
+
+            if existing[0]==0:
+                flagUniqueName = True
+            else:
+                flagUniqueName=False
+
+            create_kafka_topic(topic_name)
+            send_kafka_message(topic_name, {"message": f"New Agent registered: {data['name']}"})
+            
+     
 
     # Store in MySQL
     cursor.execute(
